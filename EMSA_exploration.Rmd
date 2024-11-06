@@ -1,0 +1,314 @@
+---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.16.4
+  kernelspec:
+    display_name: R
+    language: R
+    name: ir
+---
+
+```{r}
+#tried to install packages to read shp. file just in case, but takes too long time so be careful
+install.packages("rgdal")
+install.packages("sf")
+```
+
+```{r}
+#load packages
+library(tidyverse)
+library(dplyr)
+library(readr)
+library(lubridate)
+library(ggplot2)
+library(patchwork)
+library(repr)
+#library(rgdal)
+#library(sf)
+```
+
+```{r}
+#load EMSA data
+EMSA <- read_csv("emsa_dat.csv")
+```
+
+```{r}
+head(EMSA)
+```
+
+```{r}
+#convert enter_time and exit_time to date-time objects (in case needed)
+EMSA$enter_time <- ymd_hms(EMSA$enter_time)
+EMSA$exit_time <- ymd_hms(EMSA$exit_time)
+```
+
+```{r}
+#filter entry & exits in February and March, name the filtered data EMSA_NoV
+EMSA_NoV <- EMSA %>%
+mutate(enter_month = month(enter_date)) %>%
+mutate(exit_month = month(exit_date)) %>%
+mutate(enter_year = year(enter_date)) %>%
+mutate(exit_year = year(exit_date))%>%
+filter(enter_month %in% c(2, 3)|exit_month %in% c(2,3))
+head(EMSA_NoV)
+```
+
+```{r}
+#Just checking geofence names
+EMSA_NoV%>%
+group_by(geofence_name)%>%
+summarise()
+```
+
+```{r}
+#Number of entries (count of Vessel UID) in February and March in each year at each geofence
+Entry <- EMSA_NoV %>%
+filter(enter_month %in% c(2,3))%>%
+group_by(enter_year, geofence_name, Vessel_UID) %>%
+summarize() %>%
+group_by(enter_year, geofence_name) %>%
+summarise(count = n_distinct(Vessel_UID))
+head(Entry)
+
+#Number of entries (count of Vessel UID) in February and March in each year at each geofence
+Exit <- EMSA_NoV %>%
+filter(exit_month %in% c(2,3))%>%
+group_by(exit_year, geofence_name, Vessel_UID) %>%
+summarize() %>%
+group_by(exit_year, geofence_name) %>%
+summarise(count = n_distinct(Vessel_UID))
+head(Exit)
+```
+
+```{r}
+#Visualize the table above (count vs year)
+Entry_year <- Entry %>%
+ggplot(aes(x = enter_year, y = count, fill = enter_year)) +
+geom_bar(stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 600), breaks = seq(0, 600, by = 50),
+                    labels = function(y) ifelse(y %% 1 == 0, as.character(y), ""))+
+  labs(x = "Year", y = "Vessel Counts", title = "Vessel Entry in February and March per Year") + #Edit lables
+  theme_bw()+ #making the theme black and white
+  theme(strip.text = element_blank(), #removing plot label
+       panel.grid.major = element_blank(), #removing major grids
+       panel.grid.minor = element_blank(), #removing minor grids
+       panel.border = element_blank(),#removing the border 
+       axis.line = element_line(color = "black"), #keeping axis
+       axis.text.x = element_text(size = 12), #Adjusting text sizes
+       axis.text.y = element_text(size = 12), 
+       axis.title.x = element_text(size = 12),
+       axis.title.y = element_text(size = 12),
+       legend.text = element_text(size = 10),
+       legend.title = element_text(size = 12),
+       )  
+
+Exit_year <- Exit %>%
+ggplot(aes(x = exit_year, y = count, fill = exit_year)) +
+geom_bar(stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 600), breaks = seq(0, 600, by = 50),
+                    labels = function(y) ifelse(y %% 1 == 0, as.character(y), ""))+
+  labs(x = "Year", y = "Vessel Counts", title = "Vessel Exit in February and March per Year") + #Edit lables
+  theme_bw()+ #making the theme black and white
+  theme(strip.text = element_blank(), #removing plot label
+       panel.grid.major = element_blank(), #removing major grids
+       panel.grid.minor = element_blank(), #removing minor grids
+       panel.border = element_blank(),#removing the border 
+       axis.line = element_line(color = "black"), #keeping axis
+       axis.text.x = element_text(size = 12), #Adjusting text sizes
+       axis.text.y = element_text(size = 12), 
+       axis.title.x = element_text(size = 12),
+       axis.title.y = element_text(size = 12),
+       legend.text = element_text(size = 10),
+       legend.title = element_text(size = 12),
+       )                       
+Entry_year+Exit_year
+options(repr.plot.width = 18, repr.plot.height = 6)
+```
+
+```{r}
+#Visualize the table above (count of entries vs geofence)
+Entry_fence20 <- Entry %>%
+filter(enter_year == 2020)%>%
+ggplot(aes(x = geofence_name, y = count, fill = geofence_name)) +
+geom_bar(stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 80), breaks = seq(0, 80, by = 10),
+                    labels = function(y) ifelse(y %% 1 == 0, as.character(y), ""))+
+  labs(x = "Location", y = "Vessel Counts", title = "Vessel Entry in February and March per Location (2020)") + #Edit lables
+  theme_bw()+ #making the theme black and white
+  theme(strip.text = element_blank(), #removing plot label
+       panel.grid.major = element_blank(), #removing major grids
+       panel.grid.minor = element_blank(), #removing minor grids
+       panel.border = element_blank(),#removing the border 
+       axis.line = element_line(color = "black"), #keeping axis
+       axis.text.x = element_text(size = 12, angle = 45), #Adjusting text sizes
+       axis.text.y = element_text(size = 12), 
+       axis.title.x = element_text(size = 12),
+       axis.title.y = element_text(size = 12),
+#       legend.text = element_text(size = 10),
+#       legend.title = element_text(size = 12),
+       )  
+
+Entry_fence21 <- Entry %>%
+filter(enter_year == 2021)%>%
+ggplot(aes(x = geofence_name, y = count, fill = geofence_name)) +
+geom_bar(stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 80), breaks = seq(0, 80, by = 10),
+                    labels = function(y) ifelse(y %% 1 == 0, as.character(y), ""))+
+  labs(x = "Location", y = "Vessel Counts", title = "Vessel Entry in February and March per Location (2021)") + #Edit lables
+  theme_bw()+ #making the theme black and white
+  theme(strip.text = element_blank(), #removing plot label
+       panel.grid.major = element_blank(), #removing major grids
+       panel.grid.minor = element_blank(), #removing minor grids
+       panel.border = element_blank(),#removing the border 
+       axis.line = element_line(color = "black"), #keeping axis
+       axis.text.x = element_text(size = 12, angle = 45), #Adjusting text sizes
+       axis.text.y = element_text(size = 12), 
+       axis.title.x = element_text(size = 12),
+       axis.title.y = element_text(size = 12),
+#       legend.text = element_text(size = 10),
+#       legend.title = element_text(size = 12),
+       )  
+
+Entry_fence22 <- Entry %>%
+filter(enter_year == 2022)%>%
+ggplot(aes(x = geofence_name, y = count, fill = geofence_name)) +
+geom_bar(stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 80), breaks = seq(0, 80, by = 10),
+                    labels = function(y) ifelse(y %% 1 == 0, as.character(y), ""))+
+  labs(x = "Location", y = "Vessel Counts", title = "Vessel Entry in February and March per Location (2022)") + #Edit lables
+  theme_bw()+ #making the theme black and white
+  theme(strip.text = element_blank(), #removing plot label
+       panel.grid.major = element_blank(), #removing major grids
+       panel.grid.minor = element_blank(), #removing minor grids
+       panel.border = element_blank(),#removing the border 
+       axis.line = element_line(color = "black"), #keeping axis
+       axis.text.x = element_text(size = 12, angle = 45), #Adjusting text sizes
+       axis.text.y = element_text(size = 12), 
+       axis.title.x = element_text(size = 12),
+       axis.title.y = element_text(size = 12),
+#       legend.text = element_text(size = 10),
+#       legend.title = element_text(size = 12),
+       )  
+
+Entry_fence23 <- Entry %>%
+filter(enter_year == 2023)%>%
+ggplot(aes(x = geofence_name, y = count, fill = geofence_name)) +
+geom_bar(stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 80), breaks = seq(0, 80, by = 10),
+                    labels = function(y) ifelse(y %% 1 == 0, as.character(y), ""))+
+  labs(x = "Location", y = "Vessel Counts", title = "Vessel Entry in February and March per Location (2023)") + #Edit lables
+  theme_bw()+ #making the theme black and white
+  theme(strip.text = element_blank(), #removing plot label
+       panel.grid.major = element_blank(), #removing major grids
+       panel.grid.minor = element_blank(), #removing minor grids
+       panel.border = element_blank(),#removing the border 
+       axis.line = element_line(color = "black"), #keeping axis
+       axis.text.x = element_text(size = 12, angle = 45), #Adjusting text sizes
+       axis.text.y = element_text(size = 12), 
+       axis.title.x = element_text(size = 12),
+       axis.title.y = element_text(size = 12),
+#       legend.text = element_text(size = 10),
+#       legend.title = element_text(size = 12),
+       )  
+
+(Entry_fence20+Entry_fence21)/(Entry_fence22+Entry_fence23)   
+ options(repr.plot.width = 18, repr.plot.height = 20)                    
+```
+
+```{r}
+#Visualize the table above (count of exits vs geofence)
+Exit_fence20 <- Exit %>%
+filter(exit_year == 2020)%>%
+ggplot(aes(x = geofence_name, y = count, fill = geofence_name)) +
+geom_bar(stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 80), breaks = seq(0, 80, by = 10),
+                    labels = function(y) ifelse(y %% 1 == 0, as.character(y), ""))+
+  labs(x = "Location", y = "Vessel Counts", title = "Vessel Exit in February and March per Location (2020)") + #Edit lables
+  theme_bw()+ #making the theme black and white
+  theme(strip.text = element_blank(), #removing plot label
+       panel.grid.major = element_blank(), #removing major grids
+       panel.grid.minor = element_blank(), #removing minor grids
+       panel.border = element_blank(),#removing the border 
+       axis.line = element_line(color = "black"), #keeping axis
+       axis.text.x = element_text(size = 12, angle = 45), #Adjusting text sizes
+       axis.text.y = element_text(size = 12), 
+       axis.title.x = element_text(size = 12),
+       axis.title.y = element_text(size = 12),
+#       legend.text = element_text(size = 10),
+#       legend.title = element_text(size = 12),
+       )  
+
+Exit_fence21 <- Exit %>%
+filter(exit_year == 2021)%>%
+ggplot(aes(x = geofence_name, y = count, fill = geofence_name)) +
+geom_bar(stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 80), breaks = seq(0, 80, by = 10),
+                    labels = function(y) ifelse(y %% 1 == 0, as.character(y), ""))+
+  labs(x = "Location", y = "Vessel Counts", title = "Vessel Exit in February and March per Location (2021)") + #Edit lables
+  theme_bw()+ #making the theme black and white
+  theme(strip.text = element_blank(), #removing plot label
+       panel.grid.major = element_blank(), #removing major grids
+       panel.grid.minor = element_blank(), #removing minor grids
+       panel.border = element_blank(),#removing the border 
+       axis.line = element_line(color = "black"), #keeping axis
+       axis.text.x = element_text(size = 12, angle = 45), #Adjusting text sizes
+       axis.text.y = element_text(size = 12), 
+       axis.title.x = element_text(size = 12),
+       axis.title.y = element_text(size = 12),
+#       legend.text = element_text(size = 10),
+#       legend.title = element_text(size = 12),
+       )  
+
+Exit_fence22 <- Exit %>%
+filter(exit_year == 2022)%>%
+ggplot(aes(x = geofence_name, y = count, fill = geofence_name)) +
+geom_bar(stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 80), breaks = seq(0, 80, by = 10),
+                    labels = function(y) ifelse(y %% 1 == 0, as.character(y), ""))+
+  labs(x = "Location", y = "Vessel Counts", title = "Vessel Exit in February and March per Location (2022)") + #Edit lables
+  theme_bw()+ #making the theme black and white
+  theme(strip.text = element_blank(), #removing plot label
+       panel.grid.major = element_blank(), #removing major grids
+       panel.grid.minor = element_blank(), #removing minor grids
+       panel.border = element_blank(),#removing the border 
+       axis.line = element_line(color = "black"), #keeping axis
+       axis.text.x = element_text(size = 12, angle = 45), #Adjusting text sizes
+       axis.text.y = element_text(size = 12), 
+       axis.title.x = element_text(size = 12),
+       axis.title.y = element_text(size = 12),
+#       legend.text = element_text(size = 10),
+#       legend.title = element_text(size = 12),
+       )  
+
+Exit_fence23 <- Exit %>%
+filter(exit_year == 2023)%>%
+ggplot(aes(x = geofence_name, y = count, fill = geofence_name)) +
+geom_bar(stat = "identity") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 80), breaks = seq(0, 80, by = 10),
+                    labels = function(y) ifelse(y %% 1 == 0, as.character(y), ""))+
+  labs(x = "Location", y = "Vessel Counts", title = "Vessel Exit in February and March per Location (2023)") + #Edit lables
+  theme_bw()+ #making the theme black and white
+  theme(strip.text = element_blank(), #removing plot label
+       panel.grid.major = element_blank(), #removing major grids
+       panel.grid.minor = element_blank(), #removing minor grids
+       panel.border = element_blank(),#removing the border 
+       axis.line = element_line(color = "black"), #keeping axis
+       axis.text.x = element_text(size = 12, angle = 45), #Adjusting text sizes
+       axis.text.y = element_text(size = 12), 
+       axis.title.x = element_text(size = 12),
+       axis.title.y = element_text(size = 12),
+#       legend.text = element_text(size = 10),
+#       legend.title = element_text(size = 12),
+       )  
+
+(Exit_fence20+Exit_fence21)/(Exit_fence22+Exit_fence23)   
+ options(repr.plot.width = 18, repr.plot.height = 20)   
+```
+
+```{r}
+
+```
